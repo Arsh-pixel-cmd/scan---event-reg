@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'scan-qrcode-web-app',
   webDir: 'dist',
   server: {
-    url: 'http://localhost:5173/',
+    url: 'https://scan-event-reg.vercel.app/',
     cleartext: true,
   },
 };
