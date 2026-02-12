@@ -1,0 +1,285 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Camera, Upload, CheckCircle2, AlertCircle, X, Scan, ShieldCheck, FileSpreadsheet, RotateCcw, Leaf, Trees, Sprout, Wind } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// External Scripts for Parsing and Scanning
+const SCRIPTS = [
+  'https://unpkg.com/html5-qrcode',
+  'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+];
+
+export default function App() {
+  const [attendees, setAttendees] = useState([]);
+  const [scanStatus, setScanStatus] = useState('idle'); // idle, success, error
+  const [matchedUser, setMatchedUser] = useState(null);
+  const [isScannerActive, setIsScannerActive] = useState(false);
+  const [scriptsLoaded, setScriptsLoaded] = useState(false);
+  const scannerRef = useRef(null);
+
+  useEffect(() => {
+    let loadedCount = 0;
+    SCRIPTS.forEach(src => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.onload = () => {
+        loadedCount++;
+        if (loadedCount === SCRIPTS.length) setScriptsLoaded(true);
+      };
+      document.body.appendChild(script);
+    });
+  }, []);
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const extension = file.name.split('.').pop().toLowerCase();
+
+    if (extension === 'csv') {
+      window.Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => setAttendees(results.data)
+      });
+    } else if (['xlsx', 'xls'].includes(extension)) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const bstr = evt.target.result;
+        const wb = window.XLSX.read(bstr, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        setAttendees(window.XLSX.utils.sheet_to_json(ws));
+      };
+      reader.readAsBinaryString(file);
+    }
+  };
+
+  const startScanner = () => {
+    setIsScannerActive(true);
+    setTimeout(() => {
+      scannerRef.current = new window.Html5QrcodeScanner("reader", {
+        fps: 20,
+        qrbox: { width: 250, height: 250 },
+      });
+      scannerRef.current.render(onScanSuccess, onScanFailure);
+    }, 100);
+  };
+
+  const stopScanner = () => {
+    if (scannerRef.current) {
+      scannerRef.current.clear().catch(() => { });
+      setIsScannerActive(false);
+    }
+  };
+
+  const onScanSuccess = (decodedText) => {
+    const found = attendees.find(u => {
+      const id = u.registration_id || u.RegistrationID || u.registration_ID || u.id;
+      return String(id).trim() === String(decodedText).trim();
+    });
+
+    if (found) {
+      setMatchedUser(found);
+      setScanStatus('success');
+    } else {
+      setScanStatus('error');
+    }
+    stopScanner();
+  };
+
+  const onScanFailure = () => { };
+
+  const resetScanner = () => {
+    setScanStatus('idle');
+    setMatchedUser(null);
+    startScanner();
+  };
+
+  if (!scriptsLoaded) {
+    return (
+      <div className="min-h-screen bg-[#FDFCF0] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Sprout className="text-[#588157] animate-bounce" size={40} />
+          <p className="text-[#3A5A40] font-serif italic">Preparing the Arena...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#FDFCF0] text-[#344E41] font-sans selection:bg-[#A3B18A]/30 relative overflow-x-hidden">
+
+      {/* Organic Background Elements */}
+      <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-[-5%] right-[-5%] w-[400px] h-[400px] bg-[#A3B18A]/20 rounded-full blur-[80px]"></div>
+        <div className="absolute bottom-[10%] left-[-10%] w-[350px] h-[350px] bg-[#DAD7CD]/40 rounded-full blur-[100px]"></div>
+      </div>
+
+      {/* Header */}
+      <nav className="sticky top-0 z-30 bg-[#FDFCF0]/70 backdrop-blur-md border-b border-[#A3B18A]/20 p-5">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-[#588157] rounded-2xl shadow-lg shadow-[#3A5A40]/10">
+              <Trees className="text-[#FDFCF0]" size={24} />
+            </div>
+            <div>
+              <h1 className="font-serif font-bold text-[#344E41] text-xl">Algo Arena <span className="text-[#588157] font-sans italic">1.0</span></h1>
+              <p className="text-[10px] text-[#A3B18A] font-bold uppercase tracking-[0.2em]">NextGenX AI Club // IILM</p>
+            </div>
+          </div>
+          <div className="bg-[#DAD7CD]/30 px-4 py-1.5 rounded-full border border-[#A3B18A]/20">
+            <span className="text-xs font-semibold text-[#588157]">
+              {attendees.length > 0 ? `${attendees.length} Seeds Planted` : 'Garden Empty'}
+            </span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="relative z-10 p-6 max-w-xl mx-auto pt-10 pb-24">
+
+        {/* Step 1: Data Initialization */}
+        {attendees.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white/80 border border-[#A3B18A]/30 backdrop-blur-sm rounded-[40px] p-10 text-center shadow-xl shadow-[#3A5A40]/5"
+          >
+            <div className="mb-8 inline-flex p-6 bg-[#F3F4F0] rounded-[30px] text-[#588157]">
+              <FileSpreadsheet size={48} />
+            </div>
+            <h2 className="text-2xl font-serif font-bold text-[#344E41] mb-3">Begin the Harvest</h2>
+            <p className="text-[#588157]/70 text-sm mb-10 leading-relaxed italic">
+              Please upload your participant list to start welcoming people to the Arena.
+            </p>
+            <label className="group relative cursor-pointer inline-flex items-center gap-3 bg-[#3A5A40] text-[#FDFCF0] px-10 py-4 rounded-full font-bold hover:bg-[#588157] transition-all shadow-lg active:scale-95">
+              <Upload size={20} />
+              UPLOAD LIST
+              <input type="file" className="hidden" accept=".csv, .xlsx, .xls" onChange={handleFileUpload} />
+            </label>
+          </motion.div>
+        )}
+
+        {/* Step 2: Live Scanning Control */}
+        {attendees.length > 0 && scanStatus === 'idle' && (
+          <div className="space-y-10">
+            {!isScannerActive ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center bg-white/80 border border-[#A3B18A]/30 backdrop-blur-sm rounded-[40px] p-12 shadow-xl"
+              >
+                <div className="mb-10 flex justify-center">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-[#588157]/10 rounded-full blur-2xl animate-pulse"></div>
+                    <div className="relative w-24 h-24 bg-[#F3F4F0] rounded-full flex items-center justify-center">
+                      <Camera className="text-[#588157]" size={40} />
+                    </div>
+                  </div>
+                </div>
+                <h3 className="text-xl font-serif font-bold text-[#344E41] mb-2">Scanner Dormant</h3>
+                <p className="text-[#588157]/70 text-sm mb-10 italic">Awaken the camera to verify guests.</p>
+                <button
+                  onClick={startScanner}
+                  className="w-full py-5 bg-[#588157] text-[#FDFCF0] rounded-full font-bold text-lg shadow-lg hover:bg-[#3A5A40] transition-all"
+                >
+                  START SCANNING
+                </button>
+              </motion.div>
+            ) : (
+              <div className="relative rounded-[50px] overflow-hidden bg-[#344E41] border-[12px] border-white shadow-2xl">
+                <div id="reader" className="w-full overflow-hidden"></div>
+                <button
+                  onClick={stopScanner}
+                  className="absolute top-4 right-4 bg-white/20 backdrop-blur-md text-white p-2.5 rounded-full hover:bg-white/40 transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={() => setAttendees([])}
+              className="w-full text-[#A3B18A] font-bold text-[10px] uppercase tracking-[0.2em] hover:text-[#588157] transition-colors"
+            >
+              <RotateCcw size={12} className="inline mr-2" /> Reset Master List
+            </button>
+          </div>
+        )}
+
+        {/* Global Overlays for Scan Results */}
+        <AnimatePresence>
+          {scanStatus === 'success' && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-[#FDFCF0]/90 backdrop-blur-xl p-6"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="w-full max-w-sm bg-white border border-[#A3B18A]/30 rounded-[50px] p-8 text-center shadow-2xl"
+              >
+                <div className="mb-8 inline-flex p-6 bg-[#F3F4F0] rounded-full text-[#588157]">
+                  <ShieldCheck size={64} />
+                </div>
+                <h2 className="text-4xl font-serif font-bold text-[#344E41] mb-2 tracking-tight">Verified</h2>
+                <p className="text-[#588157] font-medium text-xs uppercase tracking-widest mb-10 italic">Welcome to the Arena</p>
+
+                <div className="bg-[#FDFCF0] p-8 rounded-[40px] text-left border border-[#A3B18A]/20 mb-10 shadow-inner">
+                  <div className="mb-6">
+                    <span className="text-[10px] font-bold text-[#A3B18A] uppercase tracking-widest block mb-2">Guest</span>
+                    <span className="text-2xl font-serif font-bold text-[#344E41]">{matchedUser?.attendee_name || matchedUser?.Name}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-[#A3B18A] uppercase tracking-widest block mb-2">ID Reference</span>
+                      <span className="text-xs font-mono text-[#588157] bg-[#588157]/10 px-3 py-1 rounded-full">{matchedUser?.registration_id || matchedUser?.RegistrationID || 'ARENA_MEMBER'}</span>
+                    </div>
+                    <Leaf className="text-[#A3B18A]/40" size={24} />
+                  </div>
+                </div>
+
+                <button
+                  onClick={resetScanner}
+                  className="w-full py-5 bg-[#344E41] text-[#FDFCF0] rounded-full font-bold text-lg hover:shadow-xl transition-all"
+                >
+                  NEXT GUEST
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {scanStatus === 'error' && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-[#588157]/10 backdrop-blur-xl p-6"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="w-full max-w-sm bg-white border border-[#A3B18A]/30 rounded-[50px] p-10 text-center shadow-2xl"
+              >
+                <div className="mb-8 inline-flex p-6 bg-red-50 rounded-full text-red-400">
+                  <AlertCircle size={64} />
+                </div>
+                <h2 className="text-3xl font-serif font-bold text-[#344E41] mb-2">Unknown Seed</h2>
+                <p className="text-red-400 font-bold text-[10px] uppercase tracking-widest mb-10">Verification Failed</p>
+
+                <button
+                  onClick={resetScanner}
+                  className="w-full py-5 bg-red-500 text-white rounded-full font-bold text-lg hover:bg-red-600 transition-all"
+                >
+                  RE-SCAN
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      </main>
+
+      <footer className="fixed bottom-0 left-0 right-0 p-8 text-center z-20 pointer-events-none">
+        <div className="inline-flex items-center gap-4 bg-white/40 backdrop-blur-md px-8 py-3 rounded-full border border-[#A3B18A]/30 shadow-sm">
+          <span className="text-[10px] font-bold text-[#344E41]/40 uppercase tracking-[0.4em]">07 FEB 2026 // ALGO ARENA // ENGINEERING BLOCK</span>
+        </div>
+      </footer>
+    </div>
+  );
+}
