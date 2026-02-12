@@ -197,7 +197,7 @@ export default function App() {
 
     const found = attendees.find(u => {
       // Get ID from various possible keys
-      const rawId = u.registration_id || u.RegistrationID || u.registration_ID || u.id;
+      const rawId = u.registration_id || u.RegistrationID || u.registration_ID || u.id || u.ID || u.Student_ID || u.student_id;
       if (!rawId && !u.raw_content) return false;
 
       // Normalization check
@@ -216,14 +216,20 @@ export default function App() {
     });
 
     if (found) {
-      setMatchedUser(found);
+      // Normalize found object to ensure display_name exists
+      const name = found.display_name || found.name || found.Name || found.Full_Name || found.full_name || found.attendee_name || found.Student_Name || "Valued Guest";
+      const id = found.registration_id || found.RegistrationID || found.id || found.ID || found.Student_ID || "ID_FOUND";
+
+      setMatchedUser({ ...found, display_name: name, registration_id: id });
       setScanStatus('success');
     } else {
-      // Fallback: Check hardcoded data
-      if (HardcodedAttendees[cleanDecoded]) {
+      // Fallback: Check hardcoded data (Case-Insensitive lookup)
+      const hardcodedKey = Object.keys(HardcodedAttendees).find(k => normalize(k) === cleanDecoded);
+
+      if (hardcodedKey) {
         setMatchedUser({
-          registration_id: cleanDecoded,
-          display_name: HardcodedAttendees[cleanDecoded]
+          registration_id: hardcodedKey,
+          display_name: HardcodedAttendees[hardcodedKey]
         });
         setScanStatus('success');
         stopScanner();
@@ -235,7 +241,7 @@ export default function App() {
         ? (attendees[0].registration_id || attendees[0].RegistrationID || 'N/A')
         : 'Empty List';
 
-      alert(`DEBUG: Scan Mismatch\n\nScanned: "${decodedText}"\nNormalized: "${cleanDecoded}"\n\nAttendees Loaded: ${attendees.length}\nSample ID[0]: "${sampleId}"\n\nPlease check for extra spaces or case differences.`);
+      // alert(`DEBUG: Scan Mismatch\n\nScanned: "${decodedText}"\nNormalized: "${cleanDecoded}"\n\nAttendees Loaded: ${attendees.length}\nSample ID[0]: "${sampleId}"\n\nPlease check for extra spaces or case differences.`);
 
       setScanStatus('error');
     }
@@ -390,12 +396,12 @@ export default function App() {
                 <div className="bg-[#588157]/5 p-6 rounded-[30px] text-left border border-[#A3B18A]/10">
                   <div className="mb-4">
                     <span className="text-xs font-bold text-[#A3B18A] uppercase tracking-widest block mb-2">Guest Name</span>
-                    <span className="text-4xl font-serif font-bold text-[#344E41] leading-tight block">{matchedUser?.display_name}</span>
+                    <span className="text-4xl font-serif font-bold text-[#344E41] leading-tight block">{matchedUser?.display_name || matchedUser?.name || matchedUser?.Name || matchedUser?.full_name || "Valued Guest"}</span>
                   </div>
                   <div className="flex items-center justify-between pt-6 border-t border-[#A3B18A]/10 mt-4">
                     <div>
                       <span className="text-[10px] font-bold text-[#A3B18A] uppercase tracking-widest block mb-1">ID Reference</span>
-                      <span className="text-xs font-mono font-bold text-[#588157] bg-[#FFFFFF] px-3 py-1.5 rounded-full shadow-sm">{matchedUser?.registration_id || matchedUser?.RegistrationID || matchedUser?.id || 'ARENA_MEMBER'}</span>
+                      <span className="text-xs font-mono font-bold text-[#588157] bg-[#FFFFFF] px-3 py-1.5 rounded-full shadow-sm">{matchedUser?.registration_id || matchedUser?.RegistrationID || matchedUser?.id || matchedUser?.ID || 'ARENA_MEMBER'}</span>
                     </div>
                     <Leaf className="text-[#A3B18A]/30" size={24} />
                   </div>
