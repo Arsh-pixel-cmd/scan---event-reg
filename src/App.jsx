@@ -18,6 +18,10 @@ export default function App() {
   const [scriptsLoaded, setScriptsLoaded] = useState(false);
   const scannerRef = useRef(null);
 
+  // New state for manual text entry
+  const [manualData, setManualData] = useState("");
+  const [showManualEntry, setShowManualEntry] = useState(false);
+
   useEffect(() => {
     let loadedCount = 0;
     SCRIPTS.forEach(src => {
@@ -31,6 +35,28 @@ export default function App() {
       document.body.appendChild(script);
     });
   }, []);
+
+  const handleManualSubmit = () => {
+    if (!manualData.trim()) return;
+
+    // Auto-detect CSV-like structure or just simple list
+    const parsedData = window.Papa.parse(manualData, {
+      header: true,
+      skipEmptyLines: true
+    });
+
+    if (parsedData.data && parsedData.data.length > 0 && Object.keys(parsedData.data[0]).length > 1) {
+      setAttendees(parsedData.data);
+    } else {
+      // Fallback: Treat as a simple list of IDs (one per line)
+      const lines = manualData.split(/\r?\n/).filter(line => line.trim() !== "");
+      const simpleAttendees = lines.map(line => ({
+        registration_id: line.trim(),
+        attendee_name: "Participant"
+      }));
+      setAttendees(simpleAttendees);
+    }
+  };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
